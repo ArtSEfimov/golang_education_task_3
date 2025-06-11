@@ -2,11 +2,14 @@ package tasks
 
 import (
 	"fmt"
+	"io_bound_task/internal/tasks/payloads"
 	"slices"
 	"time"
 )
 
-type MapDB = map[uint64]Task
+const initialDBSize = 10
+
+type MapDB = map[uint64]*payloads.Task
 type OrderedID = []uint64
 
 type Repository struct {
@@ -16,8 +19,8 @@ type Repository struct {
 }
 
 func NewRepository() *Repository {
-	db := make(MapDB, 10)
-	order := make(OrderedID, 10)
+	db := make(MapDB, initialDBSize)
+	order := make(OrderedID, initialDBSize)
 	idCounter := uint64(0)
 
 	return &Repository{
@@ -37,24 +40,27 @@ func (repository *Repository) getNextID() uint64 {
 	return repository.idCounter
 }
 
-func (repository *Repository) FindByID(id uint64) (*Task, error) {
+func (repository *Repository) FindByID(id uint64) (*payloads.Task, error) {
 	task, ok := repository.DB[id]
 	if !ok {
-		return nil, fmt.Errorf("task with id = %d not found", id)
+		return nil, fmt.Errorf("task with ID %d not found", id)
 	}
-	return &task, nil
+	task.SetDuration()
+	return task, nil
 }
 
-func (repository *Repository) GetAllTasks(tasks *AllTasksResponse) error {
+func (repository *Repository) GetAllTasks(tasks *payloads.AllTasksResponse) error {
 	for _, task := range repository.DB {
-		tasks.Tasks = append(tasks.Tasks, task)
+		task.SetDuration()
+		tasks.Tasks = append(tasks.Tasks, *task)
 	}
 	return nil
 }
-func (repository *Repository) GetAllTasksInOrder(tasks *AllTasksResponse) error {
+func (repository *Repository) GetAllTasksInOrder(tasks *payloads.AllTasksResponse) error {
 	for _, id := range repository.Order {
 		if task, ok := repository.DB[id]; ok {
-			tasks.Tasks = append(tasks.Tasks, task)
+			task.SetDuration()
+			tasks.Tasks = append(tasks.Tasks, *task)
 		}
 	}
 	return nil
@@ -62,7 +68,7 @@ func (repository *Repository) GetAllTasksInOrder(tasks *AllTasksResponse) error 
 func (repository *Repository) Delete(id uint64) error {
 	_, ok := repository.DB[id]
 	if !ok {
-		return fmt.Errorf("task with id = %d not found", id)
+		return fmt.Errorf("task with ID %d not found", id)
 	}
 
 	delete(repository.DB, id)
@@ -73,10 +79,10 @@ func (repository *Repository) Delete(id uint64) error {
 	return nil
 }
 
-func (repository *Repository) Create(task *Task) error {
+func (repository *Repository) Create(task *payloads.Task) error {
 	task.ID = repository.getNextID()
-	repository.DB[task.ID] = *task
+	repository.DB[task.ID] = task
 	task.CreatedAt = time.Now()
-	task.Status = StatusCreated
+	task.Status = payloads.StatusCreated
 	return nil
 }

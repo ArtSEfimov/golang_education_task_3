@@ -1,7 +1,7 @@
 package service
 
 import (
-	"io_bound_task/internal/tasks"
+	"io_bound_task/internal/tasks/payloads"
 	"time"
 )
 
@@ -12,31 +12,33 @@ const (
 
 type machine struct {
 	boundProcessor *Processor
-	inputTaskChan  chan *tasks.Task
-	outputTaskChan chan *tasks.Task
+	inputTaskChan  chan *payloads.Task
+	outputTaskChan chan *payloads.Task
 	status         int
 }
 
 func newMachine(processor *Processor) *machine {
 	return &machine{
 		boundProcessor: processor,
+		inputTaskChan:  make(chan *payloads.Task),
+		outputTaskChan: make(chan *payloads.Task),
 		status:         StatusIdle,
 	}
 }
 
-func (m *machine) assignTask(task *tasks.Task) {
+func (m *machine) assignTask(task *payloads.Task) {
 	m.status = StatusWorking
 	m.boundProcessor.moveToBusyWorkerPool(m)
+	go m.processTask()
 	m.inputTaskChan <- task
-	m.processTask()
 }
 
 func (m *machine) processTask() {
 	task := <-m.inputTaskChan
-	task.Status = tasks.StatusRunning
+	task.Status = payloads.StatusRunning
 	time.Sleep(5 * time.Minute)
+	go m.catchCompletedTask()
 	m.outputTaskChan <- task
-	m.catchCompletedTask()
 }
 
 func (m *machine) catchCompletedTask() {
@@ -45,7 +47,7 @@ func (m *machine) catchCompletedTask() {
 	m.boundProcessor.moveToFreeWorkerPool(m)
 	m.boundProcessor.mtx.Lock()
 	defer m.boundProcessor.mtx.Unlock()
-	task.Status = tasks.StatusCompleted
+	task.Status = payloads.StatusCompleted
 	task.FinishedAt = time.Now()
-	task.Duration = task.FinishedAt.Sub(task.CreatedAt)
+	task.SetDuration()
 }

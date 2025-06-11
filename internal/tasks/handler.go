@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io_bound_task/internal/tasks/payloads"
 	"io_bound_task/internal/tasks/service"
 	"io_bound_task/pkg/response"
 	"log"
@@ -39,25 +40,25 @@ func NewHandler(router *http.ServeMux, deps *HandlerDeps) {
 	router.HandleFunc("POST /tasks", handler.Create())
 }
 
-// TODO for all GET queries need to update task status and time since start
-
 func (handler *Handler) Get() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var allTasksResponse AllTasksResponse
+		var allTasksResponse payloads.AllTasksResponse
 		ordered := r.URL.Query().Get("order")
-		isOrdered, parseErr := strconv.ParseBool(ordered)
-		if parseErr != nil {
-			log.Printf("wrong \"order\" parameter value: %s", ordered)
-		}
+		if ordered != "" {
+			isOrdered, parseErr := strconv.ParseBool(ordered)
+			if parseErr != nil {
+				log.Printf("wrong \"order\" parameter value: %s", ordered)
+			}
 
-		if parseErr == nil && isOrdered {
-			err := handler.repository.GetAllTasksInOrder(&allTasksResponse)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+			if parseErr == nil && isOrdered {
+				err := handler.repository.GetAllTasksInOrder(&allTasksResponse)
+				if err != nil {
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				response.JsonResponse(w, allTasksResponse, http.StatusOK)
 				return
 			}
-			response.JsonResponse(w, allTasksResponse, http.StatusOK)
-			return
 		}
 
 		err := handler.repository.GetAllTasks(&allTasksResponse)
@@ -113,14 +114,14 @@ func (handler *Handler) Delete() http.HandlerFunc {
 
 func (handler *Handler) Create() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var task Task
+		var task payloads.Task
 		bodyReader := bufio.NewReader(r.Body)
 		decodeErr := json.NewDecoder(bodyReader).Decode(&task)
 		if decodeErr != nil {
 			createErr := fmt.Errorf("bad create query: %w", decodeErr)
 			http.Error(w, createErr.Error(), http.StatusBadRequest)
 		}
-		if task.Name == "" {
+		if task.Title == "" {
 			requiredErr := fmt.Errorf("\"name\" value is required")
 			http.Error(w, requiredErr.Error(), http.StatusBadRequest)
 		}
@@ -131,6 +132,7 @@ func (handler *Handler) Create() http.HandlerFunc {
 		}
 
 		handler.processor.AddTask(&task)
+
 		response.JsonResponse(w, &task, http.StatusCreated)
 
 	}

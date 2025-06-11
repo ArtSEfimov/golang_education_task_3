@@ -1,7 +1,7 @@
-package tasks
+package payloads
 
 type Request struct {
-	Name        string `json:"name"`
+	Title       string `json:"title"`
 	Description string `json:"description"`
 }
 

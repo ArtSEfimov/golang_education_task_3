@@ -1,67 +1,101 @@
 package service
 
 import (
-	"io_bound_task/internal/tasks"
+	"io_bound_task/internal/tasks/payloads"
 	"sync"
 )
 
 const totalMachines = 10
 
+const (
+	initialWorkerPoolCapacity = 10
+	initialTaskQueueCapacity  = 10
+)
+
 type workers = map[*machine]struct{}
 
 type Processor struct {
-	taskQueue    []*tasks.Task
-	freeWorkers  workers
-	busyWorkers  workers
-	pendingTasks chan *tasks.Task
-	mtx          *sync.RWMutex
+	taskQueue       []*payloads.Task
+	freeWorkers     workers
+	busyWorkers     workers
+	pendingTasks    chan *payloads.Task
+	mtx             *sync.RWMutex
+	taskQueueCond   *sync.Cond
+	freeWorkersCond *sync.Cond
 }
 
 func NewProcessor() *Processor {
 	processor := Processor{
-		taskQueue:   make([]*tasks.Task, 10),
-		freeWorkers: make(workers, 10),
-		busyWorkers: make(workers, 10),
+		taskQueue:    make([]*payloads.Task, 0, initialTaskQueueCapacity),
+		freeWorkers:  make(workers, initialWorkerPoolCapacity),
+		busyWorkers:  make(workers, initialWorkerPoolCapacity),
+		pendingTasks: make(chan *payloads.Task),
 	}
+	mtx := &sync.RWMutex{}
+	processor.mtx = mtx
+	processor.taskQueueCond = sync.NewCond(mtx)
+	processor.freeWorkersCond = sync.NewCond(mtx)
 	processor.freeWorkers[newMachine(&processor)] = struct{}{}
 	return &processor
 }
 
-func (processor *Processor) AddTask(task *tasks.Task) {
+func (processor *Processor) AddTask(task *payloads.Task) {
+	processor.mtx.Lock()
+	defer processor.mtx.Unlock()
 	processor.taskQueue = append(processor.taskQueue, task)
+	processor.taskQueueCond.Signal()
 }
 
 func (processor *Processor) Start() {
 	go func() {
-
 		for task := range processor.pendingTasks {
 			for {
 				freeWorker := processor.getNextFreeWorker()
-				if freeWorker != nil {
-					freeWorker.assignTask(task)
-					break
+				if freeWorker == nil {
+					processor.mtx.Lock()
+					processor.freeWorkersCond.Wait()
+					processor.mtx.Unlock()
+					continue
 				}
+				freeWorker.assignTask(task)
+				break
 			}
 		}
-
 	}()
 
 	for {
-		if len(processor.taskQueue) == 0 {
+		if processor.getTaskQueueLength() == 0 {
+			processor.mtx.Lock()
+			processor.taskQueueCond.Wait()
+			processor.mtx.Unlock()
 			continue
 		}
 		if processor.getFreeWorkersCount() == 0 && processor.getBusyWorkersCount() < totalMachines {
 			processor.createFreeWorker()
 		}
-		for _, task := range processor.taskQueue {
-			freeWorker := processor.getNextFreeWorker()
-			if freeWorker != nil {
-				freeWorker.assignTask(task)
-				continue
-			}
-			processor.pendingTasks <- task
+
+		nextTask := processor.getNextTask()
+		freeWorker := processor.getNextFreeWorker()
+		if freeWorker != nil {
+			freeWorker.assignTask(nextTask)
+		} else {
+			processor.pendingTasks <- nextTask
 		}
 	}
+}
+
+func (processor *Processor) getTaskQueueLength() int {
+	processor.mtx.RLock()
+	defer processor.mtx.RUnlock()
+	return len(processor.taskQueue)
+}
+
+func (processor *Processor) getNextTask() *payloads.Task {
+	processor.mtx.Lock()
+	defer processor.mtx.Unlock()
+	task := processor.taskQueue[0]
+	processor.taskQueue = processor.taskQueue[1:]
+	return task
 }
 
 func (processor *Processor) createFreeWorker() {
@@ -106,4 +140,5 @@ func (processor *Processor) moveToFreeWorkerPool(worker *machine) {
 	defer processor.mtx.Unlock()
 	delete(processor.busyWorkers, worker)
 	processor.freeWorkers[worker] = struct{}{}
+	processor.freeWorkersCond.Signal()
 }

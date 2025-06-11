@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"io_bound_task/internal/tasks"
+	"io_bound_task/internal/tasks/service"
 	"net/http"
 	"os"
 )
@@ -21,7 +22,17 @@ func main() {
 		Addr:    fmt.Sprintf(":%s", port),
 		Handler: taskMux,
 	}
+
 	taskRepository := tasks.NewRepository()
+	taskProcessor := service.NewProcessor()
+	tasks.NewHandler(
+		taskMux, tasks.NewHandlerDeps(
+			taskRepository,
+			taskProcessor,
+		),
+	)
+
+	go taskProcessor.Start()
 
 	fmt.Printf("App is listening on port %s...", port)
 	listenErr := taskServer.ListenAndServe()
