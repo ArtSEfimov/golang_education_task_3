@@ -71,38 +71,106 @@ curl.exe http://localhost:8080/tasks
 
 ### 2. Получить все задачи в порядке добавления
 
+**PowerShell**
 ```bash
-curl http://localhost:8080/tasks?ordered=true
+Invoke-RestMethod `
+  -Uri 'http://localhost:8080/tasks?ordered=true' `
+  -Method GET
+```
+
+**curl.exe**
+```bash
+curl.exe "http://localhost:8080/tasks?ordered=true"
 ```
 
 ### 3. Получить задачу по ID
 
+**PowerShell**
 ```bash
-curl http://localhost:8080/tasks/42
+$id = 42
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/tasks/$id" `
+  -Method GET
+```
+
+**curl.exe**
+```bash
+$id=42
+curl.exe http://localhost:8080/tasks/$id
 ```
 
 ### 4. Создать новую задачу
 
+**PowerShell**
 ```bash
-curl -X POST http://localhost:8080/tasks   -H "Content-Type: application/json"   -d '{"title":"Новая задача","description":"Описание задачи"}'
+$body = @{
+  title       = 'Новая задача'
+  description = 'Описание задачи'
+}
+
+Invoke-RestMethod `
+  -Uri 'http://localhost:8080/tasks' `
+  -Method POST `
+  -ContentType 'application/json' `
+  -Body (ConvertTo-Json $body)
+```
+
+**curl.exe**
+```bash
+curl.exe -X POST http://localhost:8080/tasks \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Новая задача","description":"Описание задачи"}'
 ```
 
 Тело запроса (JSON):
 ```json
 {
-  "title": "Новая задача",
-  "description": "Дополнительное описание (необязательно)"
+  title       = 'Новая задача'
+  description = 'Описание задачи' (необязательное поле)
 }
 ```
 
 ### 5. Обновить задачу
 
+**PowerShell**
 ```bash
-curl -X PUT http://localhost:8080/tasks/42   -H "Content-Type: application/json"   -d '{"title":"Обновлённый заголовок","description":"Обновлённое описание"}'
+$id = 42
+
+$body = @{
+  title       = 'Обновлённый заголовок'
+  description = 'Обновлённое описание'
+}
+
+$jsonBody = $body | ConvertTo-Json
+
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/tasks/$id" `
+  -Method PUT `
+  -ContentType 'application/json' `
+  -Body $jsonBody
 ```
+
+**curl.exe**
+```bash
+curl.exe -X PUT http://localhost:8080/tasks/42 \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Обновлённый заголовок","description":"Обновлённое описание"}'
+```
+
 
 ### 6. Удалить задачу
 
+**PowerShell**
 ```bash
-curl -X DELETE http://localhost:8080/tasks/42
+$id = 42
+
+Invoke-RestMethod `
+  -Uri "http://localhost:8080/tasks/$id" `
+  -Method DELETE
+```
+
+**curl.exe**
+```bash
+$id=42
+curl.exe -X DELETE http://localhost:8080/tasks/$id
 ```
