@@ -12,6 +12,10 @@ import (
 	"strconv"
 )
 
+const (
+	Ordered = "ordered"
+)
+
 type HandlerDeps struct {
 	repository *Repository
 	processor  *service.Processor
@@ -43,11 +47,11 @@ func NewHandler(router *http.ServeMux, deps *HandlerDeps) {
 
 func (handler *Handler) Get() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ordered := r.URL.Query().Get("order")
+		ordered := r.URL.Query().Get(Ordered)
 		if ordered != "" {
 			isOrdered, parseErr := strconv.ParseBool(ordered)
 			if parseErr != nil {
-				log.Printf("wrong \"order\" parameter value: %s", ordered)
+				log.Printf("wrong \"%s\" parameter value: %s", Ordered, ordered)
 			}
 
 			if parseErr == nil && isOrdered {
@@ -107,9 +111,7 @@ func (handler *Handler) Delete() http.HandlerFunc {
 			http.Error(w, deleteErr.Error(), http.StatusBadRequest)
 			return
 		}
-		// TODO delete from process QUEUE !!!
-		// TODO make method processor DELETE TASK from QUEUE
-		// handler.processor.DeleteTask()
+
 		response.JsonResponse(w, nil, http.StatusNoContent)
 	}
 }
@@ -125,7 +127,7 @@ func (handler *Handler) Create() http.HandlerFunc {
 			return
 		}
 		if taskRequest.Title == "" {
-			requiredErr := fmt.Errorf("\"name\" value is required")
+			requiredErr := fmt.Errorf("\"title\" value is required")
 			http.Error(w, requiredErr.Error(), http.StatusBadRequest)
 			return
 		}
