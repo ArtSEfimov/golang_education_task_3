@@ -1,4 +1,4 @@
-# Tasks API
+# Task API
 
 Простое HTTP-API для работы со списком задач (CRUD + упорядоченный вывод).
 
@@ -69,29 +69,34 @@ PORT=8080
 
 ## Примеры комбинированных запросов
 
-### 1. Упорядоченный список только завершённых задач
-GET /tasks?ordered=true&completed=true
+#### 1. Упорядоченный список завершённых и запущенных задач
+GET /tasks?ordered=true&completed=true&running=true
 
-### 2. Список запущенных задач
-GET /tasks?running=true
+#### 2. Неупорядоченный список созданных и неудачных задач
+GET /tasks?created=true&failed=true
 
-### 3. Только недавно созданные задачи, не упорядоченные
-GET /tasks?created=true&ordered=false
+#### 3. Показать запущенные и завершённые задачи
+GET /tasks?running=true&completed=true
 
-### 4. Все задачи, кроме завершённых и неудачных
-GET /tasks?completed=false&failed=false
+#### 4. Упорядоченный список созданных и завершённых задач
+GET /tasks?ordered=true&created=true&completed=true
 
-### 5. Упорядоченный список запущенных и только что созданных задач
-GET /tasks?ordered=true&running=true&created=true
+#### 5. Только недавно созданные и запущенные задачи
+GET /tasks?created=true&running=true
 
-### 6. Показать только неупорядоченные и не созданные задачи
-GET /tasks?ordered=false&created=false
+#### 6. Список завершённых и неудачных задач
+GET /tasks?completed=true&failed=true
 
-### 7. Список задач по любым параметрам (все включены)
+#### 7. Упорядоченный список неудачных и запущенных задач
+GET /tasks?ordered=true&failed=true&running=true
+
+#### 8.1. Полный охват: все параметры включены и упорядочены
 GET /tasks?ordered=true&created=true&running=true&completed=true&failed=true
 
-### 8. Без фильтров (вернуть всё)
+#### 8.2. Без фильтров (результат аналогичен примеру 8.1, т.к. все параметры имеют значение по умолчанию false)
 GET /tasks
+
+Все параметры имеют значение по умолчанию false
 
 
 ## ✏️ Примеры запросов
