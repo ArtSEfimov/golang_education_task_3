@@ -57,8 +57,16 @@ PORT=8080
 
 ### 1. Получить все задачи (неупорядоченно)
 
+**PowerShell**
 ```bash
-curl http://localhost:8080/tasks
+Invoke-RestMethod `
+  -Uri 'http://localhost:8080/tasks' `
+  -Method GET
+```
+
+**curl.exe**
+```bash
+curl.exe http://localhost:8080/tasks
 ```
 
 ### 2. Получить все задачи в порядке добавления
