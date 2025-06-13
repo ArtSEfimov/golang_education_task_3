@@ -50,21 +50,27 @@ func (repository *Repository) FindByID(id uint64) (*payloads.Task, error) {
 	return task, nil
 }
 
-func (repository *Repository) GetAllTasks() (*payloads.AllTasksResponse, error) {
+func (repository *Repository) GetTasks(queryParams map[string]bool) (*payloads.AllTasksResponse, error) {
 	var allTasksResponse payloads.AllTasksResponse
+	isEmpty := len(queryParams) == 0
 	for _, task := range repository.DB {
-		task.SetDuration()
-		allTasksResponse.Tasks = append(allTasksResponse.Tasks, *task)
+		if taskStatusValue, ok := queryParams[task.Status]; taskStatusValue && ok || isEmpty {
+			task.SetDuration()
+			allTasksResponse.Tasks = append(allTasksResponse.Tasks, *task)
+		}
 	}
 	return &allTasksResponse, nil
 }
 
-func (repository *Repository) GetAllTasksInOrder() (*payloads.AllTasksResponse, error) {
+func (repository *Repository) GetTasksInOrder(queryParams map[string]bool) (*payloads.AllTasksResponse, error) {
 	var allTasksResponse payloads.AllTasksResponse
+	isEmpty := len(queryParams) == 0
 	for _, id := range repository.Order {
-		if task, ok := repository.DB[id]; ok {
-			task.SetDuration()
-			allTasksResponse.Tasks = append(allTasksResponse.Tasks, *task)
+		if task, exists := repository.DB[id]; exists {
+			if taskStatusValue, ok := queryParams[task.Status]; taskStatusValue && ok || isEmpty {
+				task.SetDuration()
+				allTasksResponse.Tasks = append(allTasksResponse.Tasks, *task)
+			}
 		}
 	}
 	return &allTasksResponse, nil

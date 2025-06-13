@@ -7,13 +7,8 @@ import (
 	"io_bound_task/internal/tasks/payloads"
 	"io_bound_task/internal/tasks/service"
 	"io_bound_task/pkg/response"
-	"log"
 	"net/http"
 	"strconv"
-)
-
-const (
-	Ordered = "ordered"
 )
 
 type HandlerDeps struct {
@@ -47,25 +42,18 @@ func NewHandler(router *http.ServeMux, deps *HandlerDeps) {
 
 func (handler *Handler) Get() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ordered := r.URL.Query().Get(Ordered)
-		if ordered != "" {
-			isOrdered, parseErr := strconv.ParseBool(ordered)
-			if parseErr != nil {
-				log.Printf("wrong \"%s\" parameter value: %s", Ordered, ordered)
-			}
-
-			if parseErr == nil && isOrdered {
-				allTasksResponse, getErr := handler.repository.GetAllTasksInOrder()
-				if getErr != nil {
-					http.Error(w, getErr.Error(), http.StatusInternalServerError)
-					return
-				}
-				response.JsonResponse(w, allTasksResponse, http.StatusOK)
+		validQueryParams := getValidQueryParams(r)
+		if isOrdered(r) {
+			allTasksResponse, getErr := handler.repository.GetTasksInOrder(validQueryParams)
+			if getErr != nil {
+				http.Error(w, getErr.Error(), http.StatusInternalServerError)
 				return
 			}
+			response.JsonResponse(w, allTasksResponse, http.StatusOK)
+			return
 		}
 
-		allTasksResponse, getErr := handler.repository.GetAllTasks()
+		allTasksResponse, getErr := handler.repository.GetTasks(validQueryParams)
 		if getErr != nil {
 			http.Error(w, getErr.Error(), http.StatusInternalServerError)
 			return
