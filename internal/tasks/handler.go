@@ -35,14 +35,14 @@ func NewHandler(router *http.ServeMux, deps *HandlerDeps) {
 		processor:  deps.processor,
 	}
 	router.HandleFunc("GET /tasks", handler.Get())
-	router.HandleFunc("GET /tasks/{id}", handler.GetByID())
+	router.HandleFunc("GET /tasks/{id}", handler.FindByID())
 	router.HandleFunc("DELETE /tasks/{id}", handler.Delete())
 	router.HandleFunc("POST /tasks", handler.Create())
+	router.HandleFunc("PUT /tasks/{id}", handler.Update())
 }
 
 func (handler *Handler) Get() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var allTasksResponse payloads.AllTasksResponse
 		ordered := r.URL.Query().Get("order")
 		if ordered != "" {
 			isOrdered, parseErr := strconv.ParseBool(ordered)
@@ -51,9 +51,9 @@ func (handler *Handler) Get() http.HandlerFunc {
 			}
 
 			if parseErr == nil && isOrdered {
-				err := handler.repository.GetAllTasksInOrder(&allTasksResponse)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
+				allTasksResponse, getErr := handler.repository.GetAllTasksInOrder()
+				if getErr != nil {
+					http.Error(w, getErr.Error(), http.StatusInternalServerError)
 					return
 				}
 				response.JsonResponse(w, allTasksResponse, http.StatusOK)
@@ -61,9 +61,9 @@ func (handler *Handler) Get() http.HandlerFunc {
 			}
 		}
 
-		err := handler.repository.GetAllTasks(&allTasksResponse)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+		allTasksResponse, getErr := handler.repository.GetAllTasks()
+		if getErr != nil {
+			http.Error(w, getErr.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -71,7 +71,7 @@ func (handler *Handler) Get() http.HandlerFunc {
 	}
 }
 
-func (handler *Handler) GetByID() http.HandlerFunc {
+func (handler *Handler) FindByID() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		idString := r.PathValue("id")
 		id, parseErr := strconv.ParseUint(idString, 10, 64)
@@ -102,38 +102,76 @@ func (handler *Handler) Delete() http.HandlerFunc {
 			return
 		}
 
-		err := handler.repository.Delete(id)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		deleteErr := handler.repository.Delete(id, handler.processor)
+		if deleteErr != nil {
+			http.Error(w, deleteErr.Error(), http.StatusBadRequest)
 			return
 		}
-
+		// TODO delete from process QUEUE !!!
+		// TODO make method processor DELETE TASK from QUEUE
+		// handler.processor.DeleteTask()
 		response.JsonResponse(w, nil, http.StatusNoContent)
 	}
 }
 
 func (handler *Handler) Create() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var task payloads.Task
+		var taskRequest payloads.TaskRequest
 		bodyReader := bufio.NewReader(r.Body)
-		decodeErr := json.NewDecoder(bodyReader).Decode(&task)
+		decodeErr := json.NewDecoder(bodyReader).Decode(&taskRequest)
 		if decodeErr != nil {
 			createErr := fmt.Errorf("bad create query: %w", decodeErr)
 			http.Error(w, createErr.Error(), http.StatusBadRequest)
+			return
 		}
-		if task.Title == "" {
+		if taskRequest.Title == "" {
 			requiredErr := fmt.Errorf("\"name\" value is required")
 			http.Error(w, requiredErr.Error(), http.StatusBadRequest)
+			return
 		}
 
-		creationErr := handler.repository.Create(&task)
-		if creationErr != nil {
-			http.Error(w, creationErr.Error(), http.StatusInternalServerError)
+		createdTask, createErr := handler.repository.Create(&taskRequest)
+		if createErr != nil {
+			http.Error(w, createErr.Error(), http.StatusInternalServerError)
+			return
 		}
 
-		handler.processor.AddTask(&task)
+		handler.processor.AddTask(createdTask)
 
-		response.JsonResponse(w, &task, http.StatusCreated)
+		response.JsonResponse(w, createdTask, http.StatusCreated)
+	}
+}
 
+func (handler *Handler) Update() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		idString := r.PathValue("id")
+		id, parseErr := strconv.ParseUint(idString, 10, 64)
+		if parseErr != nil {
+			idErr := fmt.Errorf("wrong id format: %w, get %s", parseErr, idString)
+			http.Error(w, idErr.Error(), http.StatusBadRequest)
+			return
+		}
+		var taskRequest payloads.TaskRequest
+		bodyReader := bufio.NewReader(r.Body)
+		decodeErr := json.NewDecoder(bodyReader).Decode(&taskRequest)
+		if decodeErr != nil {
+			createErr := fmt.Errorf("bad update query: %w", decodeErr)
+			http.Error(w, createErr.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if taskRequest.Title == "" {
+			requiredErr := fmt.Errorf("\"title\" value is required")
+			http.Error(w, requiredErr.Error(), http.StatusBadRequest)
+			return
+		}
+
+		updatedTask, updateErr := handler.repository.Update(&taskRequest, id)
+		if updateErr != nil {
+			http.Error(w, updateErr.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		response.JsonResponse(w, updatedTask, http.StatusOK)
 	}
 }

@@ -2,6 +2,7 @@ package service
 
 import (
 	"io_bound_task/internal/tasks/payloads"
+	"slices"
 	"sync"
 )
 
@@ -44,6 +45,14 @@ func (processor *Processor) AddTask(task *payloads.Task) {
 	defer processor.mtx.Unlock()
 	processor.taskQueue = append(processor.taskQueue, task)
 	processor.taskQueueCond.Signal()
+}
+
+func (processor *Processor) RemoveTask(taskToDelete *payloads.Task) {
+	processor.mtx.Lock()
+	defer processor.mtx.Unlock()
+	processor.taskQueue = slices.DeleteFunc(processor.taskQueue, func(task *payloads.Task) bool {
+		return task.ID == taskToDelete.ID
+	})
 }
 
 func (processor *Processor) Start() {
