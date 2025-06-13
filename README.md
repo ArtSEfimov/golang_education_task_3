@@ -123,7 +123,7 @@ curl.exe -X POST http://localhost:8080/tasks \
 ```
 
 Тело запроса (JSON):
-```json
+```bash
 {
   title       = 'Новая задача'
   description = 'Описание задачи' (необязательное поле)
@@ -141,13 +141,11 @@ $body = @{
   description = 'Обновлённое описание'
 }
 
-$jsonBody = $body | ConvertTo-Json
-
 Invoke-RestMethod `
   -Uri "http://localhost:8080/tasks/$id" `
   -Method PUT `
   -ContentType 'application/json' `
-  -Body $jsonBody
+  -Body (ConvertTo-Json $body)
 ```
 
 **curl.exe**
