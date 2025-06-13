@@ -96,8 +96,6 @@ GET /tasks?ordered=true&created=true&running=true&completed=true&failed=true
 #### 8.2. Без фильтров (результат аналогичен примеру 8.1, т.к. все параметры имеют значение по умолчанию false)
 GET /tasks
 
-Все параметры имеют значение по умолчанию false
-
 
 ## ✏️ Примеры запросов
 
